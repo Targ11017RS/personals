@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Birthday Experience</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#05050b;--panel:rgba(255,255,255,.07);--line:rgba(255,255,255,.13);--text:#f7f7fb;--muted:#a7a7b7;--accent:#ff3d71;--accent2:#7c5cff}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+#app{position:relative;z-index:2;width:100%;height:100%}
+.screen{position:absolute;inset:0;display:grid;place-items:center;padding:24px;opacity:0;pointer-events:none;transform:scale(1.03);transition:opacity .7s,transform .7s}
+.screen.active{opacity:1;pointer-events:auto;transform:scale(1)}
+.card{width:min(820px,94vw);padding:clamp(28px,6vw,70px);border:1px solid var(--line);border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.035));backdrop-filter:blur(20px);box-shadow:0 25px 90px rgba(0,0,0,.5);text-align:center}
+.eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
+h1{font-size:clamp(42px,10vw,100px);line-height:.95;letter-spacing:-5px;background:linear-gradient(90deg,#fff,#ff7fa2,#9e8cff,#fff);background-size:300%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 7s linear infinite}
+@keyframes shine{to{background-position:300%}}
+.subtitle{margin:22px auto 0;max-width:580px;color:#c7c7d2;line-height:1.7;font-size:clamp(14px,2.5vw,18px)}
+.btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:30px}
+button{border:0;color:white;background:linear-gradient(135deg,var(--accent),var(--accent2));padding:13px 20px;border-radius:999px;font-weight:700;cursor:pointer;box-shadow:0 10px 30px rgba(255,61,113,.2);transition:.2s}
+button:hover{transform:translateY(-2px);filter:brightness(1.08)}
+button.secondary{background:rgba(255,255,255,.08);box-shadow:none;border:1px solid var(--line)}
+.boot{width:min(760px,92vw);font-family:ui-monospace,monospace;color:#b9ffcc}
+.boot pre{white-space:pre-wrap;font-size:clamp(12px,2.2vw,16px);line-height:1.75}
+.progress{margin-top:20px;height:5px;background:#18221b;border-radius:99px;overflow:hidden}
+.progress i{display:block;width:0;height:100%;background:#73ff9a;box-shadow:0 0 18px #73ff9a;transition:width .3s}
+.memory{width:min(760px,94vw)}
+.memory-card{min-height:330px;padding:36px;border-radius:28px;border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(18px);display:flex;flex-direction:column;justify-content:center}
+.memory-number{font-family:monospace;color:#ff7fa2;margin-bottom:22px}
+#memoryText{font-size:clamp(22px,5vw,42px);line-height:1.25;font-weight:700}
+#memoryHint{color:var(--muted);margin-top:18px;min-height:24px}
+.game{width:min(760px,94vw);text-align:center}
+.gamebox{height:min(58vh,520px);position:relative;margin-top:18px;border:1px solid var(--line);border-radius:26px;overflow:hidden;background:rgba(255,255,255,.035)}
+.hud{position:absolute;z-index:4;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;font:700 13px ui-monospace,monospace;color:#ddd}
+.cake{position:absolute;font-size:38px;user-select:none;cursor:pointer;animation:fall linear forwards}
+@keyframes fall{from{transform:translateY(-70px) rotate(0)}to{transform:translateY(60vh) rotate(360deg)}}
+.secret{width:min(620px,94vw);text-align:center}
+.secret input{width:100%;padding:15px 18px;border-radius:15px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff;outline:none;margin:18px 0}
+.secret-msg{min-height:30px;color:#ff9db6}
+.final h2{font-size:clamp(44px,11vw,105px);letter-spacing:-5px}
+.final p{margin-top:22px;color:#c7c7d2;line-height:1.8}
+.signature{margin-top:35px;color:#ff8cab;font-weight:700}
+#soundToggle{position:fixed;z-index:20;right:16px;top:16px;padding:10px 13px;background:rgba(0,0,0,.45);border:1px solid var(--line);box-shadow:none}
+#soundGate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(2,2,7,.96);padding:25px;text-align:center}
+#soundGate.hidden{display:none}
+.gate-card{width:min(500px,92vw)}
+.gate-card h2{font-size:clamp(28px,7vw,48px);margin-bottom:12px}
+.gate-card p{color:var(--muted);line-height:1.6}
+@media(max-width:600px){.card{border-radius:24px}h1,.final h2{letter-spacing:-3px}.gamebox{height:52vh}}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<!--
+AUDIO FILES:
+Put these files beside this HTML inside an "audio" folder:
+audio/bg.mp3
+audio/click.mp3
+audio/memory.mp3
+audio/unlock.mp3
+audio/fireworks.mp3
+-->
+
+<div id="soundGate">
+  <div class="gate-card">
+    <div style="font-size:55px;margin-bottom:15px">🎧</div>
+    <h2>Put on headphones.</h2>
+    <p>A tiny birthday experience is waiting inside.</p>
+    <div class="btns">
+      <button onclick="enterExperience()">ENTER EXPERIENCE ✨</button>
+    </div>
+  </div>
+</div>
+
+<button id="soundToggle" onclick="toggleSound()">🔊</button>
+
+<!-- AUDIO -->
+<audio id="bgMusic" src="audio/bg.mp3" loop preload="auto"></audio>
+<audio id="clickSound" src="audio/click.mp3" preload="auto"></audio>
+<audio id="memorySound" src="audio/memory.mp3" preload="auto"></audio>
+<audio id="unlockSound" src="audio/unlock.mp3" preload="auto"></audio>
+<audio id="fireworkSound" src="audio/fireworks.mp3" preload="auto"></audio>
+
+<div id="app">
+
+<section class="screen active" id="boot">
+<div class="boot">
+<pre id="bootText"></pre>
+<div class="progress"><i id="bar"></i></div>
+</div>
+</section>
+
+<section class="screen" id="welcome">
+<div class="card">
+<div class="eyebrow">A very unnecessary but highly important system</div>
+<h1>NAMAN</h1>
+<p class="subtitle">Another year successfully installed.<br>Some memories were found along the way.</p>
+<div class="btns"><button onclick="go('memory')">ENTER 🎂</button></div>
+</div>
+</section>
+
+<section class="screen" id="memory">
+<div class="memory">
+<div class="eyebrow">MEMORY ARCHIVE</div>
+<div class="memory-card">
+<div class="memory-number" id="memoryNo">MEMORY #01</div>
+<div id="memoryText"></div>
+<div id="memoryHint"></div>
+<div class="btns">
+<button onclick="nextMemory()">NEXT MEMORY →</button>
+<button class="secondary" onclick="go('game')">SKIP TO CHAOS</button>
+</div>
+</div>
+</div>
+</section>
+
+<section class="screen" id="game">
+<div class="game">
+<div class="eyebrow">OPTIONAL NONSENSE MODULE</div>
+<h2>Catch the Birthday Cakes 🎂</h2>
+<p class="subtitle">Catch 10 cakes before they escape.</p>
+<div class="gamebox" id="gamebox">
+<div class="hud"><span>SCORE: <b id="score">0</b>/10</span><span>XP: <b id="xp">0</b></span></div>
+</div>
+<div class="btns">
+<button class="secondary" onclick="startGame()">RESTART</button>
+<button onclick="go('secret')">CONTINUE →</button>
+</div>
+</div>
+</section>
+
+<section class="screen" id="secret">
+<div class="secret card">
+<div class="eyebrow">CLASSIFIED MEMORY</div>
+<h2>🔐 Hidden Unlock</h2>
+<p class="subtitle">Enter the secret password.</p>
+<input id="password" placeholder="Enter password..." autocomplete="off">
+<button onclick="unlock()">UNLOCK</button>
+<div class="secret-msg" id="secretMsg"></div>
+<div class="btns"><button class="secondary" onclick="go('final')">SKIP</button></div>
+</div>
+</section>
+
+<section class="screen final" id="final">
+<div class="card">
+<div class="eyebrow">SYSTEM MESSAGE</div>
+<h2>Happy Birthday,<br>Naman 🎂</h2>
+<p id="finalMessage"></p>
+<div class="signature">— Rudra</div>
+</div>
+</section>
+
+</div>
+
+<script>
+/* =========================
+   ✏️ EDIT HERE
+   ========================= */
+
+const CONFIG={
+  secretPassword:"birthday",
+
+  memories:[
+    {text:"YOUR FIRST MEMORY GOES HERE.",hint:"Add your own description."},
+    {text:"YOUR SECOND MEMORY GOES HERE.",hint:"Put an inside joke here."},
+    {text:"YOUR THIRD MEMORY GOES HERE.",hint:"Make this one personal."},
+    {text:"ONE LAST MEMORY FOR THE ARCHIVE.",hint:"The archive can be expanded."}
+  ],
+
+  finalMessage:
+    "Replace this with your actual birthday message.<br>" +
+    "Make it funny, wholesome, chaotic, or painfully specific. 🎂✨"
+};
+
+/* =========================
+   🔊 AUDIO ENGINE
+   ========================= */
+
+let soundEnabled=true;
+const bgMusic=document.getElementById("bgMusic");
+const clickSound=document.getElementById("clickSound");
+const memorySound=document.getElementById("memorySound");
+const unlockSound=document.getElementById("unlockSound");
+const fireworkSound=document.getElementById("fireworkSound");
+
+bgMusic.volume=.28;
+clickSound.volume=.45;
+memorySound.volume=.5;
+unlockSound.volume=.55;
+fireworkSound.volume=.45;
+
+function playSound(audio){
+  if(!soundEnabled)return;
+  audio.currentTime=0;
+  audio.play().catch(()=>{});
+}
+
+function enterExperience(){
+  document.getElementById("soundGate").classList.add("hidden");
+  bgMusic.play().catch(()=>{});
+  playSound(clickSound);
+}
+
+function toggleSound(){
+  soundEnabled=!soundEnabled;
+  document.getElementById("soundToggle").textContent=soundEnabled?"🔊":"🔇";
+
+  if(soundEnabled) bgMusic.play().catch(()=>{});
+  else bgMusic.pause();
+}
+
+/* =========================
+   🚀 SCREEN SYSTEM
+   ========================= */
+
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  playSound(clickSound);
+
+  if(id==="memory")renderMemory();
+  if(id==="game")startGame();
+  if(id==="final"){
+    fireworks();
+    playSound(fireworkSound);
+  }
+}
+
+/* =========================
+   💻 BOOT
+   ========================= */
+
+const lines=[
+"RUDRA_ARCHIVE :: birthday_protocol",
+"Loading memories............... OK",
+"Checking birthday status........ OK",
+"Preparing something special..... OK",
+"",
+"READY."
+];
+
+let bi=0;
+function boot(){
+  if(bi<lines.length){
+    document.getElementById("bootText").textContent+=lines[bi++]+"\\n";
+    document.getElementById("bar").style.width=(bi/lines.length*100)+"%";
+    setTimeout(boot,280);
+  }else setTimeout(()=>go("welcome"),700);
+}
+boot();
+
+/* =========================
+   🧠 MEMORY
+   ========================= */
+
+let mi=0;
+function renderMemory(){
+  const m=CONFIG.memories[mi];
+  document.getElementById("memoryNo").textContent=
+    "MEMORY #"+String(mi+1).padStart(2,"0");
+  document.getElementById("memoryText").textContent=m.text;
+  document.getElementById("memoryHint").textContent=m.hint;
+}
+function nextMemory(){
+  playSound(memorySound);
+  mi++;
+  if(mi>=CONFIG.memories.length){go("game");return}
+  renderMemory();
+}
+renderMemory();
+
+/* =========================
+   🎮 GAME
+   ========================= */
+
+let score=0,gameTimer=null;
+
+function startGame(){
+  const box=document.getElementById("gamebox");
+  box.querySelectorAll(".cake").forEach(x=>x.remove());
+  clearInterval(gameTimer);
+  score=0;
+  document.getElementById("score").textContent=0;
+  document.getElementById("xp").textContent=0;
+
+  gameTimer=setInterval(()=>{
+    if(score>=10)return;
+    spawnCake();
+  },650);
+}
+
+function spawnCake(){
+  const box=document.getElementById("gamebox");
+  const c=document.createElement("div");
+  c.className="cake";
+  c.textContent=["🎂","🧁","🍰","🎁"][Math.floor(Math.random()*4)];
+  c.style.left=(5+Math.random()*88)+"%";
+  c.style.top="-55px";
+  c.style.animationDuration=(2.2+Math.random()*1.8)+"s";
+
+  c.onclick=()=>{
+    score++;
+    document.getElementById("score").textContent=score;
+    document.getElementById("xp").textContent=score*25;
+    playSound(clickSound);
+    c.remove();
+
+    if(score>=10){
+      clearInterval(gameTimer);
+      setTimeout(()=>go("secret"),500);
+    }
+  };
+
+  box.appendChild(c);
+  setTimeout(()=>c.remove(),4500);
+}
+
+/* =========================
+   🔐 SECRET
+   ========================= */
+
+function unlock(){
+  const input=document.getElementById("password").value.trim();
+  const msg=document.getElementById("secretMsg");
+
+  if(input.toLowerCase()===CONFIG.secretPassword.toLowerCase()){
+    msg.textContent="ACCESS GRANTED. 🫡";
+    playSound(unlockSound);
+    setTimeout(()=>go("final"),900);
+  }else{
+    msg.textContent="ACCESS DENIED. Nice try. 😂";
+    playSound(clickSound);
+  }
+}
+
+/* =========================
+   🎆 STARS / FIREWORKS
+   ========================= */
+
+const canvas=document.getElementById("stars");
+const ctx=canvas.getContext("2d");
+let W,H,stars=[],sparks=[];
+
+function resize(){
+  canvas.width=innerWidth*devicePixelRatio;
+  canvas.height=innerHeight*devicePixelRatio;
+  canvas.style.width=innerWidth+"px";
+  canvas.style.height=innerHeight+"px";
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  W=innerWidth;H=innerHeight;
+}
+addEventListener("resize",resize);resize();
+
+for(let i=0;i<140;i++)stars.push({
+  x:Math.random(),y:Math.random(),r:Math.random()*1.5+.2,a:Math.random()
+});
+
+function fireworks(){
+  for(let i=0;i<4;i++){
+    const x=Math.random()*W,y=H*.15+Math.random()*H*.45;
+    for(let j=0;j<45;j++){
+      const a=Math.random()*Math.PI*2,s=Math.random()*4+1;
+      sparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1});
+    }
+  }
+}
+
+function animate(){
+  ctx.clearRect(0,0,W,H);
+  stars.forEach(s=>{
+    s.a+=(Math.random()-.5)*.03;
+    s.a=Math.max(.1,Math.min(1,s.a));
+    ctx.globalAlpha=s.a;
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);ctx.fill();
+  });
+  sparks.forEach(s=>{
+    s.x+=s.vx;s.y+=s.vy;s.vy+=.045;s.life-=.018;
+    ctx.globalAlpha=Math.max(0,s.life);
+    ctx.beginPath();ctx.arc(s.x,s.y,2,0,Math.PI*2);ctx.fill();
+  });
+  sparks=sparks.filter(s=>s.life>0);
+  ctx.globalAlpha=1;
+  requestAnimationFrame(animate);
+}
+animate();
+
+document.getElementById("finalMessage").innerHTML=CONFIG.finalMessage;
+</script>
+</body>
+</html>
